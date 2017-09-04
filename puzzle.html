@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+
+<script type="text/javascript" src="jquery.js"></script>
+
+<style type="text/css">
+body{
+	margin: 0px;
+	padding: 0px;
+	background: #CCC;
+}
+.puzzle-img{
+	width:1000px;
+	height:750px;
+	position:relative;
+}
+.puzzle{
+	overflow:hidden;
+	width:50px;
+	height:50px;
+	position: fixed;
+	display: none;
+}
+#puzzleContainer{
+	background: #CCCCCC;
+	margin: 0px;
+	padding: 0px;
+	overflow: hidden;
+	width: 100%;
+	height: 100%;
+}
+.controls{
+	float: left;
+}
+
+#canvas{
+	background: #CCC;
+	/*width: 100%;
+	height: 100%;*/
+}
+	
+</style>
+</head>
+<body>
+
+<!--<div class="puzzle" style="z-index: 1;"><img class="puzzle-img" src="puzzle.jpg"></div>-->
+
+<canvas width="1280" height="768" id="canvas">
+
+</canvas>
+
+<div class="controls">
+<input type="button" value="Shuffle" onclick="shuffle();" />
+</div>
+
+<script type="text/javascript">
+
+/*var puzzle = $( '.puzzle' );
+var puzzleImg = $( '.puzzle-img' );*/
+var numPieces = 300;
+/*var puzzleWidth = Number(puzzleImg.css("width").substr(0, puzzleImg.css("width").length - 2));
+var puzzleHeight = Number(puzzleImg.css("Height").substr(0, puzzleImg.css("Height").length - 2));*/
+var xPieces = 20;
+var yPieces = 15;
+var pieceHeight = 50;
+var pieceWidth = 50;
+
+var canvas = document.getElementById('canvas');
+var context = canvas.getContext('2d');
+
+var click = false;
+var message;
+var x, y = 0;
+var PuzzlePieces = {};
+var PuzzlePiecesLocationX = {};
+var PuzzlePiecesLocationY = {};
+var PuzzlePiecesX = {};
+var PuzzlePiecesY = {};
+var PuzzleClickX = 0;
+var PuzzleClickY = 0;
+var PuzzleAdjacentX1 = {};
+var PuzzleAdjacentX2 = {};
+var PuzzleAdjacentY1 = {};
+var PuzzleAdjacentY2 = {};
+var PuzzleX1Connected = {};
+var PuzzleX2Connected = {};
+var PuzzleY1Connected = {};
+var PuzzleY2Connected = {};
+var pieceMoved = {};
+//var PuzzleArray = {};
+//var currentArray = 1;
+//var PuzzleContainer = {};
+var checkPuzzle = clearCheck();
+var dragging = false;
+
+var image = new Image();
+image.src = "puzzle.jpg";
+
+
+function shuffle(){
+	for(i in PuzzlePieces){
+		if(PuzzleX1Connected[i] == false && PuzzleX2Connected[i] == false && PuzzleY1Connected[i] == false && PuzzleY2Connected[i] == false){
+			locX = Math.round((Math.random() * (window.innerWidth / 2)) + window.innerWidth / 2 - 100);
+			locY = Math.round(Math.random() * (window.innerHeight - 100));
+			imgMove(i, locX, locY);
+		}
+	}
+}
+
+$(function(){
+	var currentPiece = 1;
+	var currentX = 0;// - pieceWidth;
+	var currentY = 0;
+	var locX = 0;
+	var locY = 0;
+	makeMsg();
+	
+	context.canvas.width = window.innerWidth;
+	context.canvas.height = window.innerHeight - 50;
+	
+	for(y=1; y<=yPieces; y++){
+		for(x=1; x<=xPieces; x++){
+			//Random locations
+			locX = Math.round((Math.random() * (window.innerWidth / 2)) + window.innerWidth / 2 - 100);
+			locY = Math.round(Math.random() * (window.innerHeight - 100));
+			
+			imgCreate(currentPiece, image, locX, locY, currentX, currentY);
+			
+			if(x == 1){
+				PuzzleAdjacentX1[currentPiece] = 0;
+				PuzzleAdjacentX2[currentPiece] = currentPiece + 1;
+			}else if(x == xPieces){
+				PuzzleAdjacentX1[currentPiece] = currentPiece - 1;
+				PuzzleAdjacentX2[currentPiece] = 0;
+			}else{
+				PuzzleAdjacentX1[currentPiece] = currentPiece - 1;
+				PuzzleAdjacentX2[currentPiece] = currentPiece + 1;
+			}
+
+			if(y == 1){
+				PuzzleAdjacentY1[currentPiece] = 0;
+				PuzzleAdjacentY2[currentPiece] = currentPiece + xPieces;
+			}else if(y == yPieces){
+				PuzzleAdjacentY1[currentPiece] = currentPiece - xPieces;
+				PuzzleAdjacentY2[currentPiece] = 0;
+			}else{
+				PuzzleAdjacentY1[currentPiece] = currentPiece - xPieces;				
+				PuzzleAdjacentY2[currentPiece] = currentPiece + xPieces;
+			}
+
+			PuzzleX1Connected[currentPiece] = false;
+			PuzzleY1Connected[currentPiece] = false;
+			PuzzleX2Connected[currentPiece] = false;
+			PuzzleY2Connected[currentPiece] = false;
+			//PuzzleContainer[currentPiece] = 0;
+			pieceMoved[currentPiece] = false;
+			
+			currentX = currentX + pieceWidth;
+			
+			//if(currentPiece != 1){
+				//puzzle.clone().css({"z-index": currentPiece, "top": locY, "left": locX}).attr("pieceNum", currentPiece)
+				//	.appendTo("body").children().css({"left": currentX, "top": currentY});
+			
+			//}else{
+				//puzzle.css({"top": locY, "left": locX}).attr("pieceNum", currentPiece);
+			//}
+			currentPiece++;
+		}
+		currentY = currentY + pieceHeight;
+		currentX = 0;
+	}
+	//puzzle = $( '.puzzle' );
+	canvas.addEventListener("mousemove", function(event){
+		var rect = canvas.getBoundingClientRect();
+		x = Math.round((event.clientX - rect.left) * 100) / 100;
+		y = Math.round((event.clientY - rect.top) * 100) / 100;
+		makeMsg();
+		//draw();
+	}, false);
+	
+	canvas.addEventListener("mousedown", function(event){
+		click = true;
+		makeMsg();
+		checkPuzzle = checkForPuzzlePiece(x, y);
+		//draw();
+	}, false);
+	
+	canvas.addEventListener("mouseup", function(event){
+		click = false;
+		//clearInterval(dragLoop);
+		checkSurrounding(checkPuzzle.pieceIndex);
+		checkPuzzle = clearCheck();
+		makeMsg();
+		//draw();
+	}, false);
+
+});
+
+function imgUpdate(index){
+	context.drawImage(image, PuzzlePiecesLocationX[index], PuzzlePiecesLocationY[index], pieceWidth, pieceHeight, PuzzlePiecesX[index], PuzzlePiecesY[index], 50, 50);
+}
+
+function imgCreate(index, image, imageX, imageY, currentX, currentY){
+	PuzzlePiecesX[index] = imageX;
+	PuzzlePiecesY[index] = imageY;
+	PuzzlePiecesLocationX[index] = currentX;
+	PuzzlePiecesLocationY[index] = currentY;
+	PuzzlePieces[index] = context.drawImage(image, currentX, currentY, pieceWidth, pieceHeight, imageX, imageY, 50, 50);
+}
+
+function imgMove(index, imageX, imageY){
+	//TODO: Move last moved piece to front of draw array
+	PuzzlePiecesX[index] = imageX;
+	PuzzlePiecesY[index] = imageY;
+	pieceMoved[index] = true;
+	//Check for connected pieces
+	if(pieceMoved[PuzzleAdjacentX1[index]] == false && PuzzleX1Connected[index]==true){
+		imgMoveTree(PuzzleAdjacentX1[index], imageX - pieceWidth, imageY, "X2");
+	}
+	if(pieceMoved[PuzzleAdjacentX2[index]] == false && PuzzleX2Connected[index]==true){
+		imgMoveTree(PuzzleAdjacentX2[index], imageX + pieceWidth, imageY, "X1");
+	}
+	if(pieceMoved[PuzzleAdjacentY1[index]] == false && PuzzleY1Connected[index]==true){
+		imgMoveTree(PuzzleAdjacentY1[index], imageX, imageY - pieceHeight, "Y2");
+	}
+	if(pieceMoved[PuzzleAdjacentY2[index]] == false && PuzzleY2Connected[index]==true){
+		imgMoveTree(PuzzleAdjacentY2[index], imageX, imageY + pieceHeight, "Y1");
+	}
+
+}
+
+function imgMoveTree(index, imageX, imageY, previous){
+	PuzzlePiecesX[index] = imageX;
+	PuzzlePiecesY[index] = imageY;
+	pieceMoved[index] = true;
+	//Check for connected pieces
+	if(previous != "X1" && pieceMoved[PuzzleAdjacentX1[index]] == false && PuzzleX1Connected[index]==true){
+		imgMoveTree(PuzzleAdjacentX1[index], imageX - pieceWidth, imageY, "X2");
+	}
+	if(previous != "X2" && pieceMoved[PuzzleAdjacentX2[index]] == false && PuzzleX2Connected[index]==true){
+		imgMoveTree(PuzzleAdjacentX2[index], imageX + pieceWidth, imageY, "X1");
+	}
+	if(previous != "Y1" && pieceMoved[PuzzleAdjacentY1[index]] == false && PuzzleY1Connected[index]==true){
+		imgMoveTree(PuzzleAdjacentY1[index], imageX, imageY - pieceHeight, "Y2");
+	}
+	if(previous != "Y2" && pieceMoved[PuzzleAdjacentY2[index]] == false && PuzzleY2Connected[index]==true){
+		imgMoveTree(PuzzleAdjacentY2[index], imageX, imageY + pieceHeight, "Y1");
+	}
+}
+
+function checkForPuzzlePiece(mouseX, mouseY){
+	var pieceIndex = 0;
+	var deltaX = 0;
+	var deltaY = 0;
+	var foundPiece = false;
+	for(i=0; i<=numPieces; i++){
+		if(mouseX >= PuzzlePiecesX[i] && mouseX <= PuzzlePiecesX[i] + pieceWidth && 
+		mouseY >= PuzzlePiecesY[i] && mouseY <= PuzzlePiecesY[i] + pieceHeight){
+			foundPiece = true;
+			pieceIndex = i;
+			deltaX = mouseX - PuzzlePiecesX[i];
+			deltaY = mouseY - PuzzlePiecesY[i];
+			//i = numPieces;
+		}
+	}
+	return {foundPiece: foundPiece, pieceIndex: pieceIndex, deltaX: deltaX, deltaY: deltaY};
+}
+
+function clearCheck(){
+	return {foundPiece: false, pieceIndex: 0, deltaX: 0, deltaY: 0};
+}
+
+function checkSurrounding(index){
+	/*
+		     Y1
+		X1  Piece  X2
+		     Y2
+	*/
+	if(PuzzleX1Connected[index]==false){
+		var x1x = PuzzlePiecesX[index] - (PuzzlePiecesX[PuzzleAdjacentX1[index]] + pieceWidth);
+		var x1y = PuzzlePiecesY[index]-PuzzlePiecesY[PuzzleAdjacentX1[index]];
+		if(PuzzleAdjacentX1[index] != 0 && x1x <= 5 && x1x >= -5 && x1y <=5 && x1y >=-5){
+			PuzzleX1Connected[index] = true;
+			PuzzleX2Connected[PuzzleAdjacentX1[index]] = true;
+			imgMove(index, PuzzlePiecesX[PuzzleAdjacentX1[index]] + pieceWidth, PuzzlePiecesY[PuzzleAdjacentX1[index]]);
+			console.log("X1 connected!");
+		}
+	}
+	if(PuzzleY1Connected[index]==false){
+		var y1x = PuzzlePiecesY[index] - (PuzzlePiecesY[PuzzleAdjacentY1[index]] + pieceHeight);
+		var y1y = PuzzlePiecesX[index]-PuzzlePiecesX[PuzzleAdjacentY1[index]];
+		if(PuzzleAdjacentY1[index] != 0 && y1x <= 5 && y1x >= -5 && y1y <=5 && y1y >=-5){
+			PuzzleY1Connected[index] = true;
+			PuzzleY2Connected[PuzzleAdjacentY1[index]] = true;
+			imgMove(index, PuzzlePiecesX[PuzzleAdjacentY1[index]], PuzzlePiecesY[PuzzleAdjacentY1[index]] + pieceHeight);
+			console.log("Y1 connected!");
+		}
+	}
+	if(PuzzleX2Connected[index]==false){
+		var x2x = PuzzlePiecesX[PuzzleAdjacentX2[index]] - (PuzzlePiecesX[index] + pieceWidth);
+		var x2y = PuzzlePiecesY[index]-PuzzlePiecesY[PuzzleAdjacentX2[index]];
+		if(PuzzleAdjacentX2[index] != 0 && x2x <= 5 && x2x >= -5 && x2y <=5 && x2y >=-5){
+			PuzzleX2Connected[index] = true;
+			PuzzleX1Connected[PuzzleAdjacentX2[index]] = true;
+			imgMove(index, PuzzlePiecesX[PuzzleAdjacentX2[index]] - pieceWidth, PuzzlePiecesY[PuzzleAdjacentX2[index]]);
+			console.log("X2 connected!");
+		}
+	}
+	if(PuzzleY2Connected[index]==false){
+		var y2x = PuzzlePiecesY[PuzzleAdjacentY2[index]] - (PuzzlePiecesY[index] + pieceHeight);
+		var y2y = PuzzlePiecesX[index]-PuzzlePiecesX[PuzzleAdjacentY2[index]];
+		if(PuzzleAdjacentY2[index] != 0 && y2x <= 5 && y2x >= -5 && y2y <=5 && y2y >=-5){
+			PuzzleY2Connected[index] = true;
+			PuzzleY1Connected[PuzzleAdjacentY2[index]] = true;
+			imgMove(index, PuzzlePiecesX[PuzzleAdjacentY2[index]], PuzzlePiecesY[PuzzleAdjacentY2[index]] - pieceHeight);
+			console.log("Y2 connected!");
+		}
+	}
+	//TODO: Check surroundings of connected pieces
+}
+
+function dragPiece(pieceIndex, deltaX, deltaY, mouseX, mouseY){
+	imgMove(pieceIndex, mouseX - deltaX, mouseY - deltaY);
+}
+
+function makeMsg(){
+	message = "X: " + x + "  Y: " + y;
+	if(click==true) message = message + "  CLICK";
+}
+
+function draw(){
+	if(checkPuzzle.foundPiece == true){
+		imgMove(checkPuzzle.pieceIndex, x - checkPuzzle.deltaX, y - checkPuzzle.deltaY);
+	}
+	for(i in pieceMoved){
+		pieceMoved[i] = false;
+	}
+	context.clearRect(0, 0, canvas.width, canvas.height);
+	context.font = "14pt Calibri";
+	context.fillStyle = "#000000";
+	context.fillText(message, 10, canvas.height - 10);
+	for(i=1; i<=numPieces; i++){
+		imgUpdate(i);
+	}
+}
+
+var updateLoop = setInterval(draw, 33);
+
+</script>
+
+</body>
+</html>
